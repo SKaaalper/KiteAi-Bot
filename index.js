@@ -287,6 +287,7 @@ const sendMessage = async ({ item, wallet_address, innerAxios }) => {
       time_to_first_token: timeToFirstToken,
     });
     if (!ttftRes) return;
+    console.log("ttft 成功");
 
     const reportUsageResponse = await retry(
       async () =>
@@ -303,7 +304,7 @@ const sendMessage = async ({ item, wallet_address, innerAxios }) => {
     if (reportUsageResponse) {
       console.log(reportUsageResponse);
       inferenceId = reportUsageResponse.interaction_id;
-      isReportUsage = true;
+      console.log("提交成功");
     }
   } catch (e) {
     console.log("err", e);
