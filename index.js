@@ -30,17 +30,17 @@ const proxyConfig = {
 
 const agents = [
   {
-    url: "https://deployment-hlsy5tjcguvea2aqgplixjjg.stag-vxzy.zettablock.com/main",
-    agent_id: "deployment_HlsY5TJcguvEA2aqgPliXJjg",
+    url: "https://deployment-hp4y88pxnqxwlmpxllicjzzn.stag-vxzy.zettablock.com/main",
+    agent_id: "deployment_Hp4Y88pxNQXwLMPxlLICJZzN",
   },
   {
-    url: "https://deployment-7szjsicqcndy9bbhteh7dwd9.stag-vxzy.zettablock.com/main",
-    agent_id: "deployment_7sZJSiCqCNDy9bBHTEh7dwd9",
+    url: "https://deployment-nc3y3k7zy6gekszmcsordhu7.stag-vxzy.zettablock.com/main",
+    agent_id: "deployment_nC3y3k7zy6gekSZMCSordHu7",
   },
-  {
-    url: "https://deployment-sofftlsf9z4fya3qchykaanq.stag-vxzy.zettablock.com/main",
-    agent_id: "deployment_SoFftlsf9z4fyA3QCHYkaANq",
-  },
+  // {
+  //   url: "https://deployment-sofftlsf9z4fya3qchykaanq.stag-vxzy.zettablock.com/main",
+  //   agent_id: "deployment_SoFftlsf9z4fyA3QCHYkaANq",
+  // },
 ];
 const sleep = (ms) => {
   return new Promise((resolve) => {
@@ -226,22 +226,41 @@ const reportUsage = async ({
   }
 };
 
-const inference = async ({ id, innerAxios }) => {
+// const inference = async ({ id, innerAxios }) => {
+//   const res = await innerAxios({
+//     url: `https://neo-dev.prod.zettablock.com/v1/inference?id=${id}`,
+//     method: "get",
+//     headers,
+//   });
+//   if (res.status === 200) {
+//     const data = res.data;
+//     const { status } = data.data;
+//     console.log("status", status);
+//     if (status === "Succeeded") {
+//       return true;
+//     }
+//     return false;
+//   }
+//   return false;
+// };
+const calculateTimeDifference = (startTime, endTime) => {
+  return endTime - startTime;
+};
+
+const ttftUrl = async ({ innerAxios, deployment_id, time_to_first_token }) => {
   const res = await innerAxios({
-    url: `https://neo-dev.prod.zettablock.com/v1/inference?id=${id}`,
-    method: "get",
+    url: "https://quests-usage-dev.prod.zettablock.com/api/ttft",
+    method: "POST",
     headers,
+    data: {
+      deployment_id,
+      time_to_first_token,
+    },
   });
-  if (res.status === 200) {
-    const data = res.data;
-    const { status } = data.data;
-    console.log("status", status);
-    if (status === "Succeeded") {
-      return true;
-    }
-    return false;
-  }
-  return false;
+  if (res && res.status == 200) {
+    console.log(res.data.message);
+    return true;
+  } else return false;
 };
 
 const sendMessage = async ({ item, wallet_address, innerAxios }) => {
@@ -249,6 +268,7 @@ const sendMessage = async ({ item, wallet_address, innerAxios }) => {
   try {
     const message = generate({ maxLength: 6 });
     console.log("message", message);
+    const startTime = Date.now();
     const { url, agent_id } = item;
     const content = await streamAxios({
       method: "post",
@@ -256,11 +276,18 @@ const sendMessage = async ({ item, wallet_address, innerAxios }) => {
       data: { message, "stream": true },
       innerAxios,
     });
-    console.log(content);
-    let isReportUsage = false;
-    let inferenceId = null;
-
+    const endTime = Date.now();
+    const timeToFirstToken = calculateTimeDifference(startTime, endTime);
+    console.log(`content:${content}`);
     if (!content) return false;
+
+    const ttftRes = await ttftUrl({
+      innerAxios,
+      deployment_id: item.agent_id,
+      time_to_first_token: timeToFirstToken,
+    });
+    if (!ttftRes) return;
+
     const reportUsageResponse = await retry(
       async () =>
         await reportUsage({
@@ -270,7 +297,7 @@ const sendMessage = async ({ item, wallet_address, innerAxios }) => {
           wallet_address,
           innerAxios,
         }),
-      { maxAttempts: 5, delay: 3 }
+      { maxAttempts: 1, delay: 3 }
     );
 
     if (reportUsageResponse) {
@@ -278,11 +305,6 @@ const sendMessage = async ({ item, wallet_address, innerAxios }) => {
       inferenceId = reportUsageResponse.interaction_id;
       isReportUsage = true;
     }
-    if (!inferenceId) return false;
-    await retry(async () => await inference({ id: inferenceId, innerAxios }), {
-      maxAttempts: 10,
-      delay: 1,
-    });
   } catch (e) {
     console.log("err", e);
     return false;
