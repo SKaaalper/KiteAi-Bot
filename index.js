@@ -12,6 +12,7 @@ import { HttpProxyAgent } from "http-proxy-agent";
 import axios from "axios";
 import fs from "fs";
 import headers from "./headers.js";
+import getRandomQuestion from "./questions.js";
 
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
@@ -30,12 +31,12 @@ const proxyConfig = {
 
 const agents = [
   {
-    url: "https://deployment-hp4y88pxnqxwlmpxllicjzzn.stag-vxzy.zettablock.com/main",
-    agent_id: "deployment_Hp4Y88pxNQXwLMPxlLICJZzN",
+    url: "https://deployment-5pg1mnhm7h5pvhntxe90f9xb.stag-vxzy.zettablock.com/main",
+    agent_id: "deployment_5PG1mnhm7h5pvHnTxE90f9XB",
   },
   {
-    url: "https://deployment-nc3y3k7zy6gekszmcsordhu7.stag-vxzy.zettablock.com/main",
-    agent_id: "deployment_nC3y3k7zy6gekSZMCSordHu7",
+    url: "https://deployment-nd28y8lniiyzpvqgftbw2nh1.stag-vxzy.zettablock.com/main",
+    agent_id: "deployment_nD28Y8LniIYZpVqgfTBW2nH1",
   },
   // {
   //   url: "https://deployment-sofftlsf9z4fya3qchykaanq.stag-vxzy.zettablock.com/main",
@@ -214,7 +215,7 @@ const reportUsage = async ({
       method: "post",
       url: "https://quests-usage-dev.prod.zettablock.com/api/report_usage",
       headers,
-      timeout: 10000,
+      timeout: 30000,
       data: params,
     });
     if (res.status === 200) {
@@ -248,6 +249,7 @@ const calculateTimeDifference = (startTime, endTime) => {
 };
 
 const ttftUrl = async ({ innerAxios, deployment_id, time_to_first_token }) => {
+  console.log("执行了 ttft");
   const res = await innerAxios({
     url: "https://quests-usage-dev.prod.zettablock.com/api/ttft",
     method: "POST",
@@ -258,7 +260,6 @@ const ttftUrl = async ({ innerAxios, deployment_id, time_to_first_token }) => {
     },
   });
   if (res && res.status == 200) {
-    console.log(res.data.message);
     return true;
   } else return false;
 };
@@ -266,7 +267,7 @@ const ttftUrl = async ({ innerAxios, deployment_id, time_to_first_token }) => {
 const sendMessage = async ({ item, wallet_address, innerAxios }) => {
   // 随机英文单词 message
   try {
-    const message = generate({ maxLength: 6 });
+    const message = getRandomQuestion() || generate({ maxLength: 6 });
     console.log("message", message);
     const startTime = Date.now();
     const { url, agent_id } = item;
@@ -307,7 +308,6 @@ const sendMessage = async ({ item, wallet_address, innerAxios }) => {
       console.log("提交成功");
     }
   } catch (e) {
-    console.log("err", e);
     return false;
   }
 };
