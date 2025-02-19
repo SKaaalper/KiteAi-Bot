@@ -227,23 +227,23 @@ const reportUsage = async ({
   }
 };
 
-// const inference = async ({ id, innerAxios }) => {
-//   const res = await innerAxios({
-//     url: `https://neo-dev.prod.zettablock.com/v1/inference?id=${id}`,
-//     method: "get",
-//     headers,
-//   });
-//   if (res.status === 200) {
-//     const data = res.data;
-//     const { status } = data.data;
-//     console.log("status", status);
-//     if (status === "Succeeded") {
-//       return true;
-//     }
-//     return false;
-//   }
-//   return false;
-// };
+const inference = async ({ id, innerAxios }) => {
+  const res = await innerAxios({
+    url: `https://neo-dev.prod.zettablock.com/v1/inference?id=${id}`,
+    method: "get",
+    headers,
+  });
+  if (res.status === 200) {
+    const data = res.data;
+    const { status } = data.data;
+    console.log("status", status);
+    if (status === "Succeeded") {
+      return true;
+    }
+    return false;
+  }
+  return false;
+};
 const calculateTimeDifference = (startTime, endTime) => {
   return endTime - startTime;
 };
@@ -282,13 +282,13 @@ const sendMessage = async ({ item, wallet_address, innerAxios }) => {
     console.log(`content:${content}`);
     if (!content) return false;
 
-    const ttftRes = await ttftUrl({
-      innerAxios,
-      deployment_id: item.agent_id,
-      time_to_first_token: timeToFirstToken,
-    });
-    if (!ttftRes) return;
-    console.log("ttft 成功");
+    // const ttftRes = await ttftUrl({
+    //   innerAxios,
+    //   deployment_id: item.agent_id,
+    //   time_to_first_token: timeToFirstToken,
+    // });
+    // if (!ttftRes) return;
+    // console.log("ttft 成功");
 
     const reportUsageResponse = await retry(
       async () =>
@@ -301,11 +301,18 @@ const sendMessage = async ({ item, wallet_address, innerAxios }) => {
         }),
       { maxAttempts: 1, delay: 3 }
     );
-
+    let inferenceId;
     if (reportUsageResponse) {
       console.log(reportUsageResponse);
       inferenceId = reportUsageResponse.interaction_id;
       console.log("提交成功");
+    }
+    if (inferenceId) {
+      await inference({
+        id: inferenceId,
+        innerAxios,
+      }),
+        { maxAttempts: 1, delay: 3 };
     }
   } catch (e) {
     return false;
