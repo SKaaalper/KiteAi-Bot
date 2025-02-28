@@ -31,17 +31,17 @@ const proxyConfig = {
 
 const agents = [
   {
-    url: "https://deployment-5pg1mnhm7h5pvhntxe90f9xb.stag-vxzy.zettablock.com/main",
-    agent_id: "deployment_5PG1mnhm7h5pvHnTxE90f9XB",
+    url: "https://deployment-r89ftdnxa7jwwhyr97wq9lkg.stag-vxzy.zettablock.com/main",
+    agent_id: "deployment_R89FtdnXa7jWWHyr97WQ9LKG",
   },
   {
-    url: "https://deployment-nd28y8lniiyzpvqgftbw2nh1.stag-vxzy.zettablock.com/main",
-    agent_id: "deployment_nD28Y8LniIYZpVqgfTBW2nH1",
+    url: "https://deployment-fsegykivcls3m9nrpe9zguy9.stag-vxzy.zettablock.com/main",
+    agent_id: "deployment_fseGykIvCLs3m9Nrpe9Zguy9",
   },
-  // {
-  //   url: "https://deployment-sofftlsf9z4fya3qchykaanq.stag-vxzy.zettablock.com/main",
-  //   agent_id: "deployment_SoFftlsf9z4fyA3QCHYkaANq",
-  // },
+  {
+    url: "https://deployment-xkerjnnbdtazr9e15x3y7fi8.stag-vxzy.zettablock.com/main",
+    agent_id: "deployment_xkerJnNBdTaZr9E15X3Y7FI8",
+  },
 ];
 const sleep = (ms) => {
   return new Promise((resolve) => {
@@ -155,6 +155,7 @@ function createAxiosInstance(proxyUrl = null) {
 
 const streamAxios = async ({ method, url, data, innerAxios }) => {
   let totalContent = "";
+
   try {
     const response = await innerAxios({
       method,
@@ -165,8 +166,10 @@ const streamAxios = async ({ method, url, data, innerAxios }) => {
       responseType: "stream", // 处理 EventStream 数据
     });
     // 处理流式数据
+    const startTime = performance.now();
     const stream = response.data;
     return new Promise((resolve, reject) => {
+      let endTime = performance.now();
       stream.on("data", (chunk) => {
         const data = chunk.toString();
         const lines = data.split("\n");
@@ -185,14 +188,18 @@ const streamAxios = async ({ method, url, data, innerAxios }) => {
         }
       });
       stream.on("end", () => {
-        resolve(totalContent);
+        endTime = performance.now();
+        resolve({
+          content: totalContent,
+          ttftTime: calculateTimeDifference(startTime, endTime),
+        });
       });
       stream.on("error", (error) => {
-        reject("");
+        reject({});
       });
     });
   } catch (error) {
-    return "";
+    return {};
   }
 };
 
@@ -202,11 +209,15 @@ const reportUsage = async ({
   agent_id,
   wallet_address,
   innerAxios,
+  total_time,
+  ttft,
 }) => {
   try {
     const params = {
       wallet_address,
       agent_id,
+      total_time,
+      ttft,
       request_text: message,
       response_text: content,
       request_metadata: {},
@@ -248,47 +259,25 @@ const calculateTimeDifference = (startTime, endTime) => {
   return endTime - startTime;
 };
 
-const ttftUrl = async ({ innerAxios, deployment_id, time_to_first_token }) => {
-  console.log("执行了 ttft");
-  const res = await innerAxios({
-    url: "https://quests-usage-dev.prod.zettablock.com/api/ttft",
-    method: "POST",
-    headers,
-    data: {
-      deployment_id,
-      time_to_first_token,
-    },
-  });
-  if (res && res.status == 200) {
-    return true;
-  } else return false;
-};
-
 const sendMessage = async ({ item, wallet_address, innerAxios }) => {
   // 随机英文单词 message
   try {
+    const startTime = performance.now();
     const message = getRandomQuestion() || generate({ maxLength: 6 });
     console.log("message", message);
-    const startTime = Date.now();
+
     const { url, agent_id } = item;
-    const content = await streamAxios({
+    const { content, ttftTime } = await streamAxios({
       method: "post",
       url,
       data: { message, "stream": true },
       innerAxios,
     });
-    const endTime = Date.now();
+    const endTime = performance.now();
     const timeToFirstToken = calculateTimeDifference(startTime, endTime);
-    console.log(`content:${content}`);
-    if (!content) return false;
+    console.log("content", content, ttftTime, timeToFirstToken);
 
-    // const ttftRes = await ttftUrl({
-    //   innerAxios,
-    //   deployment_id: item.agent_id,
-    //   time_to_first_token: timeToFirstToken,
-    // });
-    // if (!ttftRes) return;
-    // console.log("ttft 成功");
+    if (!content) return false;
 
     const reportUsageResponse = await retry(
       async () =>
@@ -297,9 +286,11 @@ const sendMessage = async ({ item, wallet_address, innerAxios }) => {
           content,
           agent_id,
           wallet_address,
+          total_time: timeToFirstToken,
+          ttft: ttftTime,
           innerAxios,
         }),
-      { maxAttempts: 1, delay: 3 }
+      { maxAttempts: 2, delay: 1 }
     );
     let inferenceId;
     if (reportUsageResponse) {
