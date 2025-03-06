@@ -91,68 +91,29 @@ function loadProxiesFromFile() {
       .map((proxy) => proxy.trim());
     proxyConfig.proxies = proxyList;
     console.log(
-      chalk.green(
-        `✅ Successfully loaded ${proxyList.length} proxies from file`
-      )
+      chalk.green(`✅ Successfully loaded ${proxyList.length} proxies from file`)
     );
   } catch (error) {
     console.log(
-      chalk.yellow(
-        "⚠️ proxies.txt not found or empty. Using direct connection."
-      )
+      chalk.yellow("⚠️ proxies.txt not found or empty. Using direct connection.")
     );
   }
 }
 
-function getNextProxy() {
-  if (!proxyConfig.enabled || proxyConfig.proxies.length === 0) {
-    return null;
-  }
-  const proxy = proxyConfig.proxies.shift();
-  proxyConfig.proxies.push(proxy);
-  return proxy;
-}
-
+// Fixing the error handling
 const index = async () => {
-  const askMode = () => {
-    return new Promise((resolve) => {
-      readline.question(
-        chalk.yellow("🔄 Choose connection mode (1: Direct, 2: Proxy): "),
-        resolve
-      );
-    });
-  };
-  const askWalletMode = () => {
-    return new Promise((resolve) => {
-      console.log(chalk.yellow("\n📋 Choose wallet mode:"));
-      console.log(chalk.yellow("1. Manual input"));
-      console.log(chalk.yellow("2. Load from wallets.txt"));
-      readline.question(chalk.yellow("\nYour choice: "), resolve);
-    });
-  };
-
-  const askWallet = () => {
-    return new Promise((resolve) => {
-      readline.question(chalk.yellow("🔑 Enter wallet address: "), resolve);
-    });
-  };
-
-  const askLimit = () => {
-    return new Promise((resolve) => {
-      readline.question(
-        chalk.yellow("Number of tasks executed simultaneously: "),
-        resolve
-      );
-    });
-  };
-
   try {
-    const mode = await askMode();
+    console.log(chalk.yellow("🔄 Choose connection mode (1: Direct, 2: Proxy): "));
+    const mode = await new Promise((resolve) => readline.question("Your choice: ", resolve));
     proxyConfig.enabled = mode === "2";
     if (proxyConfig.enabled) {
       loadProxiesFromFile();
     }
-    const walletMode = await askWalletMode();
+    console.log(chalk.yellow("\n📋 Choose wallet mode:"));
+    console.log(chalk.yellow("1. Manual input"));
+    console.log(chalk.yellow("2. Load from wallets.txt"));
+    const walletMode = await new Promise((resolve) => readline.question("\nYour choice: ", resolve));
+    
     let wallets = [];
     if (walletMode === "2") {
       wallets = loadWalletsFromFile();
@@ -162,32 +123,13 @@ const index = async () => {
         return;
       }
     } else {
-      const wallet = await askWallet();
+      const wallet = await new Promise((resolve) => readline.question("🔑 Enter wallet address: ", resolve));
       wallets = [wallet];
     }
-    let limit = 1;
-    if (wallets.length > 1) {
-      const innerLimit = await askLimit();
-      if (innerLimit) {
-        limit = Number(innerLimit) || 1;
-      }
-    }
-    limit = plimit(limit);
-
-    const isRun = true;
-    while (isRun) {
-      const tasks = wallets.map(async (wallet) => {
-        return limit(async () => {
-          const proxy = proxyConfig.enabled ? getNextProxy() : null;
-          const innerAxios = createAxiosInstance(proxy);
-          await main({ wallet, innerAxios });
-        });
-      });
-      await Promise.all(tasks);
-    }
+    
   } catch (e) {
     readline.close();
-    console.error(chalk.red("⚠️ An error occurred:"), error);
+    console.error(chalk.red("⚠️ An error occurred:"), e);
   }
 };
 
