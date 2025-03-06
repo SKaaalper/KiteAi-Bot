@@ -25,7 +25,7 @@ An automated interaction bot for Kite AI platform with multi-wallet and proxy su
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/varown/KiteAi-Bot.git
+git clone https://github.com/SKaaalper/KiteAi-Bot.git
 cd KiteAi-Bot
 ```
 
