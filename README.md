@@ -61,7 +61,7 @@ socks5://user:pass@host:port
 
 Run the bot:
 ```bash
-npm run start
+node index.js
 ```
 
 The bot will prompt you to:
